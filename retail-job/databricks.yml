@@ -1,0 +1,144 @@
+bundle:
+  name: retail-data-processing-pipeline
+
+workspace:
+  host: https://dbc-your-workspace.cloud.databricks.com
+
+resources:
+  jobs:
+    retail_data_processing_pipeline:
+      name: "Retail Data Processing Pipeline"
+      description: "A comprehensive Lakeflow pipeline demonstrating data ingestion, processing, and conditional logic"
+      
+      job_clusters:
+        - job_cluster_key: "main_cluster"
+          new_cluster:
+            spark_version: "13.3.x-scala2.12"
+            node_type_id: "i3.xlarge"
+            num_workers: 2
+            spark_conf:
+              "spark.sql.adaptive.enabled": "true"
+              "spark.sql.adaptive.coalescePartitions.enabled": "true"
+      
+      tasks:
+        # Data Ingestion Layer
+        - task_key: "ingest_orders_task"
+          job_cluster_key: "main_cluster"
+          notebook_task:
+            notebook_path: "./01_data_ingestion/orders_table_creation"
+            source: WORKSPACE
+          timeout_seconds: 3600
+
+        - task_key: "ingest_sales_task"
+          job_cluster_key: "main_cluster"
+          notebook_task:
+            notebook_path: "./01_data_ingestion/sales_table_creation"
+            source: WORKSPACE
+          timeout_seconds: 3600
+
+        # Data Loading Layer
+        - task_key: "load_customers_task"
+          job_cluster_key: "main_cluster"
+          notebook_task:
+            notebook_path: "./02_data_loading/customers_table_creation"
+            source: WORKSPACE
+            base_parameters:
+              catalog: "hive_metastore"
+              schema: "default"
+          depends_on:
+            - task_key: "ingest_orders_task"
+            - task_key: "ingest_sales_task"
+          timeout_seconds: 3600
+
+        # Data Processing Layer
+        - task_key: "join_customers_sales_task"
+          job_cluster_key: "main_cluster"
+          notebook_task:
+            notebook_path: "./03_data_processing/join_customers_sales"
+            source: WORKSPACE
+          depends_on:
+            - task_key: "load_customers_task"
+          timeout_seconds: 3600
+
+        - task_key: "join_customers_orders_task"
+          job_cluster_key: "main_cluster"
+          notebook_task:
+            notebook_path: "./04_data_transformation/join_customers_orders"
+            source: WORKSPACE
+          depends_on:
+            - task_key: "load_customers_task"
+          timeout_seconds: 3600
+
+        # Conditional Processing (IF-ELSE Logic)
+        - task_key: "remove_duplicates_task"
+          job_cluster_key: "main_cluster"
+          notebook_task:
+            notebook_path: "./04_data_transformation/remove_duplicates"
+            source: WORKSPACE
+          depends_on:
+            - task_key: "join_customers_sales_task"
+          condition_task:
+            op: EQUAL_TO
+            left: "{{tasks.join_customers_sales_task.values.has_duplicates}}"
+            right: "true"
+          timeout_seconds: 3600
+
+        - task_key: "clean_and_transform_task"
+          job_cluster_key: "main_cluster"
+          notebook_task:
+            notebook_path: "./04_data_transformation/clean_and_transform"
+            source: WORKSPACE
+          depends_on:
+            - task_key: "join_customers_sales_task"
+          condition_task:
+            op: EQUAL_TO
+            left: "{{tasks.join_customers_sales_task.values.has_duplicates}}"
+            right: "false"
+          timeout_seconds: 3600
+
+        # For Each State Processing
+        - task_key: "process_states_task"
+          job_cluster_key: "main_cluster"
+          for_each_task:
+            inputs: '["CA", "NY", "TX", "FL", "WA"]'
+            task:
+              task_key: "process_single_state_task"
+              job_cluster_key: "main_cluster"
+              notebook_task:
+                notebook_path: "./05_state_processing/process_orders_by_state"
+                source: WORKSPACE
+                base_parameters:
+                  state: "{{input}}"
+              timeout_seconds: 3600
+          depends_on:
+            - task_key: "join_customers_orders_task"
+            - task_key: "remove_duplicates_task"
+            - task_key: "clean_and_transform_task"
+
+      schedule:
+        quartz_cron_expression: "0 0 2 * * ?"
+        timezone_id: "UTC"
+        pause_status: "PAUSED"
+      
+      email_notifications:
+        on_start: []
+        on_success: []
+        on_failure: []
+      
+      max_concurrent_runs: 1
+      timeout_seconds: 7200
+      
+      tags:
+        environment: "development"
+        team: "data-engineering"
+        project: "retail-analytics"
+
+targets:
+  development:
+    default: true
+    workspace:
+      host: https://dbc-your-workspace.cloud.databricks.com
+    
+  production:
+    workspace:
+      host: https://dbc-your-prod-workspace.cloud.databricks.com
