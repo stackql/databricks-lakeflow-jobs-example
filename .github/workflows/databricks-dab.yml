@@ -61,9 +61,9 @@ jobs:
             echo "environment=prd" >> $GITHUB_OUTPUT
             echo "stack_env=prd" >> $GITHUB_OUTPUT
           fi
-      
+
       - name: Deploy Infrastructure with StackQL
-        uses: stackql/setup-deploy@v1.0.2
+        uses: stackql/stackql-deploy-action@v1.0.2
         with:
           command: 'build'
           stack_dir: 'infrastructure'
