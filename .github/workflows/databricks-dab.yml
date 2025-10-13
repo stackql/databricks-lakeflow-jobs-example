@@ -100,6 +100,14 @@ jobs:
           DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
           DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
 
+      - name: Debug - Show all outputs
+        run: |
+          echo "Output keys available:"
+          echo "data: ${{ steps.get-workspace.outputs.data }}"
+          echo "json: ${{ steps.get-workspace.outputs.json }}"
+          echo "output: ${{ steps.get-workspace.outputs.output }}"
+          echo "result: ${{ steps.get-workspace.outputs.result }}"
+
       - name: Parse workspace outputs
         id: parse-workspace
         run: |
