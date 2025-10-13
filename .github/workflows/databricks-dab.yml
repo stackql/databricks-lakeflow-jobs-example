@@ -83,6 +83,35 @@ jobs:
       #     stack_env: ${{ steps.set-env.outputs.stack_env }}
       #     env_vars: AWS_REGION=${{ secrets.AWS_REGION }},AWS_ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID }},DATABRICKS_ACCOUNT_ID=${{ secrets.DATABRICKS_ACCOUNT_ID }},DATABRICKS_AWS_ACCOUNT_ID=${{ secrets.DATABRICKS_AWS_ACCOUNT_ID }}
 
+      - name: Setup StackQL
+        uses: stackql/setup-stackql@v2.2.3
+
+      - name: Get and parse workspace outputs
+        id: parse-workspace
+        run: |
+          # stackql should be in PATH after setup
+          RESULT=$(stackql exec "SELECT 
+            workspace_name,
+            workspace_id,
+            deployment_name,
+            workspace_status
+          FROM databricks_account.provisioning.workspaces 
+          WHERE account_id = '${{ env.DATABRICKS_ACCOUNT_ID }}' 
+          AND workspace_name = 'databricks-lakeflow-jobs-demo-${{ steps.set-env.outputs.stack_env }}-workspace'
+          " --output json)
+          
+          echo "Query returned: $RESULT"
+          
+          # Parse and set outputs
+          echo "workspace_name=$(echo "$RESULT" | jq -r '.[0].workspace_name')" >> $GITHUB_OUTPUT
+          echo "workspace_id=$(echo "$RESULT" | jq -r '.[0].workspace_id')" >> $GITHUB_OUTPUT
+          echo "deployment_name=$(echo "$RESULT" | jq -r '.[0].deployment_name')" >> $GITHUB_OUTPUT
+          echo "workspace_status=$(echo "$RESULT" | jq -r '.[0].workspace_status')" >> $GITHUB_OUTPUT
+        env:
+          DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+
+
       - name: Get workspace outputs
         id: get-workspace
         uses: stackql/stackql-exec@v2.2.3
@@ -100,31 +129,6 @@ jobs:
           DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
           DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
 
-      - name: Debug - Show all outputs
-        run: |
-          echo "Output keys available:"
-          echo "data: ${{ steps.get-workspace.outputs.data }}"
-          echo "json: ${{ steps.get-workspace.outputs.json }}"
-          echo "output: ${{ steps.get-workspace.outputs.output }}"
-          echo "result: ${{ steps.get-workspace.outputs.result }}"
-
-      - name: Parse workspace outputs
-        id: parse-workspace
-        run: |
-          # The stackql-exec action stores output in steps.get-workspace.outputs.result
-          RESULT='${{ steps.get-workspace.outputs.result }}'
-          
-          # Parse JSON and extract fields
-          WORKSPACE_NAME=$(echo "$RESULT" | jq -r '.[0].workspace_name')
-          WORKSPACE_ID=$(echo "$RESULT" | jq -r '.[0].workspace_id')
-          DEPLOYMENT_NAME=$(echo "$RESULT" | jq -r '.[0].deployment_name')
-          WORKSPACE_STATUS=$(echo "$RESULT" | jq -r '.[0].workspace_status')
-          
-          # Set as outputs
-          echo "workspace_name=$WORKSPACE_NAME" >> $GITHUB_OUTPUT
-          echo "workspace_id=$WORKSPACE_ID" >> $GITHUB_OUTPUT
-          echo "deployment_name=$DEPLOYMENT_NAME" >> $GITHUB_OUTPUT
-          echo "workspace_status=$WORKSPACE_STATUS" >> $GITHUB_OUTPUT
 
       - name: Display workspace info
         run: |
