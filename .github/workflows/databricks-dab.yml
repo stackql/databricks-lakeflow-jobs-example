@@ -68,6 +68,13 @@ jobs:
             echo "stack_env=prd" >> $GITHUB_OUTPUT
           fi
 
+      - name: Pull Databricks provider
+        id: registry-pull
+        uses: stackql/stackql-exec@v2.2.3
+        with:
+          is_command: 'true'
+          query: "REGISTRY PULL databricks_account;"
+
       # - name: Deploy Infrastructure with StackQL
       #   uses: stackql/stackql-deploy-action@v1.0.2
       #   with:
