@@ -41,6 +41,12 @@ jobs:
     name: Provision Databricks Infrastructure
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+      DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+
     outputs:
       workspace_id: ${{ steps.extract-outputs.outputs.workspace_id }}
       workspace_url: ${{ steps.extract-outputs.outputs.workspace_url }}
@@ -69,15 +75,15 @@ jobs:
           stack_dir: 'infrastructure'
           stack_env: ${{ steps.set-env.outputs.stack_env }}
           env_vars: |
-            AWS_REGION=${{ env.AWS_REGION }}
-            AWS_ACCOUNT_ID=${{ env.AWS_ACCOUNT_ID }}
-            DATABRICKS_ACCOUNT_ID=${{ env.DATABRICKS_ACCOUNT_ID }}
-            DATABRICKS_AWS_ACCOUNT_ID=${{ env.DATABRICKS_AWS_ACCOUNT_ID }}
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
-          DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+            AWS_REGION=${{ secrets.AWS_REGION }},
+            AWS_ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID }},
+            DATABRICKS_ACCOUNT_ID=${{ secrets.DATABRICKS_ACCOUNT_ID }},
+            DATABRICKS_AWS_ACCOUNT_ID=${{ secrets.DATABRICKS_AWS_ACCOUNT_ID }}
+        # env:
+        #   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        #   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        #   DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+        #   DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
 
       - name: Get workspace outputs
         id: get-workspace
