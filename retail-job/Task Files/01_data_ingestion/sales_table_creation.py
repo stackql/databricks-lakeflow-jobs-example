@@ -16,7 +16,7 @@
 # COMMAND ----------
 
 ## Reading Customer table data
-sales_df = spark.read.table('dbacademy_retail.v01.sales')
+sales_df = spark.read.table('databricks_simulated_retail_customer_data.v01.sales')
 
 # COMMAND ----------
 

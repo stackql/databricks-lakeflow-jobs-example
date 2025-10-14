@@ -173,47 +173,54 @@ jobs:
               databricks bundle validate -t ${{ steps.set-env.outputs.environment }}
               echo "✅ Bundle validation passed!"
 
-  # deploy-prod:
-  #   name: Deploy to Production
-  #   runs-on: ubuntu-latest
-  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-  #   environment: 
-  #     name: production
-  #     url: https://your-workspace.cloud.databricks.com
-    
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
+  deploy:
+      name: Deploy DAB to Production
+      runs-on: ubuntu-latest
+      needs: [provision-infrastructure, validate]
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      environment: 
+        name: production
+        url: ${{ needs.provision-infrastructure.outputs.workspace_url }}
       
-  #     - name: Setup Databricks CLI
-  #       uses: databricks/setup-cli@main
-      
-  #     - name: Validate production bundle
-  #       run: |
-  #         databricks bundle validate -t prod
-  #         echo "✅ Production bundle validation passed!"
-      
-  #     - name: Deploy to production
-  #       run: |
-  #         databricks bundle deploy -t prod
-  #         echo "✅ Deployed to production environment!"
-      
-  #     - name: Create deployment summary
-  #       run: |
-  #         echo "## 🎉 Production Deployment Successful" >> $GITHUB_STEP_SUMMARY
-  #         echo "" >> $GITHUB_STEP_SUMMARY
-  #         echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-  #         echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-  #         echo "**Author:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
-  #         echo "**Time:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
-      
-  #     - name: Notify on failure
-  #       if: failure()
-  #       run: |
-  #         echo "## ❌ Production Deployment Failed" >> $GITHUB_STEP_SUMMARY
-  #         echo "" >> $GITHUB_STEP_SUMMARY
-  #         echo "Please check the logs and retry the deployment." >> $GITHUB_STEP_SUMMARY
-
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@v4
+        
+        - name: Setup Databricks CLI
+          uses: databricks/setup-cli@main
+        
+        - name: Deploy bundle to production
+          working-directory: ./retail-job
+          env:
+            DATABRICKS_HOST: ${{ needs.provision-infrastructure.outputs.workspace_url }}
+            DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+            # Unset OAuth credentials to avoid conflict
+            DATABRICKS_CLIENT_ID: ''
+            DATABRICKS_CLIENT_SECRET: ''
+            DATABRICKS_ACCOUNT_ID: ''
+          run: |
+            echo "🚀 Deploying to production workspace..."
+            databricks bundle deploy -t prd
+            echo "✅ Successfully deployed to production!"
+        
+        - name: Display deployment summary
+          run: |
+            echo "## 🎉 Production Deployment Successful" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Workspace:** ${{ needs.provision-infrastructure.outputs.workspace_url }}" >> $GITHUB_STEP_SUMMARY
+            echo "**Workspace ID:** ${{ needs.provision-infrastructure.outputs.workspace_id }}" >> $GITHUB_STEP_SUMMARY
+            echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+            echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+            echo "**Author:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+            echo "**Time:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+        
+        - name: Handle deployment failure
+          if: failure()
+          run: |
+            echo "## ❌ Production Deployment Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Please check the logs above for details." >> $GITHUB_STEP_SUMMARY
+            exit 1
   # notify-slack:
   #     name: Notify Slack
   #     runs-on: ubuntu-latest
