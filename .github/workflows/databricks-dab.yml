@@ -137,6 +137,14 @@ jobs:
             echo "  Status: ${{ steps.parse-workspace.outputs.workspace_status }}"
             echo "  Deployment: ${{ steps.parse-workspace.outputs.deployment_name }}"
             echo "  URL: ${{ steps.set-workspace-url.outputs.workspace_url }}"
+            
+            echo "## 📦 Workspace provisioned:" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Stack:** databricks-lakeflow-jobs-demo" >> $GITHUB_STEP_SUMMARY
+            echo "**Environment:** ${{ steps.set-env.outputs.stack_env }}" >> $GITHUB_STEP_SUMMARY
+            echo "**Workspace:** [${{ steps.parse-workspace.outputs.workspace_name }}](${{ steps.set-workspace-url.outputs.workspace_url }})" >> $GITHUB_STEP_SUMMARY
+            echo "**Workspace ID:** ${{ steps.parse-workspace.outputs.workspace_id }}" >> $GITHUB_STEP_SUMMARY
+            echo "**Status:** ${{ steps.parse-workspace.outputs.workspace_status }}" >> $GITHUB_STEP_SUMMARY
 
   validate:
         name: Validate DAB Configuration
@@ -221,28 +229,4 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "Please check the logs above for details." >> $GITHUB_STEP_SUMMARY
             exit 1
-  # notify-slack:
-  #     name: Notify Slack
-  #     runs-on: ubuntu-latest
-  #     if: always()
-  #     needs: [deploy-prod]
-      
-  #     steps:
-  #       - name: Send Slack notification
-  #         uses: slackapi/slack-github-action@v1
-  #         with:
-  #           payload: |
-  #             {
-  #               "text": "${{ needs.deploy-prod.result == 'success' && '✅' || '❌' }} Production Deployment ${{ needs.deploy-prod.result }}",
-  #               "blocks": [
-  #                 {
-  #                   "type": "section",
-  #                   "text": {
-  #                     "type": "mrkdwn",
-  #                     "text": "*Databricks DAB Deployment*\n\n*Status:* ${{ needs.deploy-prod.result }}\n*Branch:* ${{ github.ref_name }}\n*Commit:* <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>\n*Author:* ${{ github.actor }}"
-  #                   }
-  #                 }
-  #               ]
-  #             }
-  #         env:
-  #           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}          
+  
