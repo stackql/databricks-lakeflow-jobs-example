@@ -74,7 +74,6 @@ resources:
             
         - task_key: "remove_duplicates_task"
           description: "Remove duplicate records from processed data"
-          job_cluster_key: "main_cluster"
           notebook_task:
             notebook_path: "./Task Files/03_data_processing/remove_duplicates.py"
             source: WORKSPACE
@@ -84,7 +83,7 @@ resources:
             op: "EQUAL_TO"
             left: "{{tasks.join_customers_sales_task.values.has_duplicates}}"
             right: "true"
-            
+
         - task_key: "transform_data_task"
           description: "Clean and transform data to gold layer"
           job_cluster_key: "main_cluster"
@@ -94,21 +93,6 @@ resources:
           depends_on:
             - task_key: "remove_duplicates_task"
               outcome: "true"
-            
-        # - task_key: "process_state_data_task"
-        #   description: "Process orders data by state"
-        #   job_cluster_key: "main_cluster"
-        #   for_each_task:
-        #     inputs: '["CA", "NY", "TX", "FL"]'
-        #     task:
-        #       task_key: "process_single_state"
-        #       notebook_task:
-        #         notebook_path: "./Task Files/05_state_processing/process_orders_by_state.py"
-        #         source: WORKSPACE
-        #         base_parameters:
-        #           state: "{{item}}"
-        #   depends_on:
-        #     - task_key: "join_customers_orders_task"
 
         - task_key: "process_state_data_task"
           description: "Process orders data by state"
