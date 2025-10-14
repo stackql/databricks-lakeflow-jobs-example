@@ -139,73 +139,39 @@ jobs:
             echo "  URL: ${{ steps.set-workspace-url.outputs.workspace_url }}"
 
   validate:
-      name: Validate DAB Configuration
-      runs-on: ubuntu-latest
-      needs: provision-infrastructure
-      if: always()
-      
-      steps:
-        - name: Checkout code
-          uses: actions/checkout@v4
+        name: Validate DAB Configuration
+        runs-on: ubuntu-latest
+        needs: provision-infrastructure
+        if: always()
         
-        - name: Determine environment
-          id: set-env
-          run: |
-            if [ "${{ github.event_name }}" == "pull_request" ]; then
-              echo "environment=dev" >> $GITHUB_OUTPUT
-            else
-              echo "environment=prd" >> $GITHUB_OUTPUT
-            fi
-        
-        - name: Setup Databricks CLI
-          uses: databricks/setup-cli@main
-        
-        - name: Validate bundle
-          working-directory: ./retail-job
-          env:
-            DATABRICKS_HOST: ${{ steps.set-env.outputs.workspace_url }}
-            DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
-          run: |
-            databricks bundle validate -t ${{ steps.set-env.outputs.environment }}
-            echo "✅ Bundle validation passed!"
-
-  # deploy-dev:
-  #   name: Deploy to Development
-  #   runs-on: ubuntu-latest
-  #   if: github.event_name == 'pull_request'
-  #   needs: validate
-  #   environment: dev
-    
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
-      
-  #     - name: Setup Databricks CLI
-  #       uses: databricks/setup-cli@main
-      
-  #     - name: Deploy to dev
-  #       run: |
-  #         databricks bundle deploy -t dev
-  #         echo "✅ Deployed to dev environment!"
-      
-  #     - name: Comment deployment status
-  #       if: always()
-  #       uses: actions/github-script@v7
-  #       with:
-  #         script: |
-  #           const outcome = '${{ job.status }}';
-  #           const emoji = outcome === 'success' ? '🚀' : '❌';
-  #           const message = outcome === 'success' 
-  #             ? 'Successfully deployed to **dev** environment!' 
-  #             : 'Deployment to dev failed. Please check the logs.';
-            
-  #           github.rest.issues.createComment({
-  #             issue_number: context.issue.number,
-  #             owner: context.repo.owner,
-  #             repo: context.repo.repo,
-  #             body: `${emoji} **Development Deployment**\n\n${message}`
-  #           });
-
+        steps:
+          - name: Checkout code
+            uses: actions/checkout@v4
+          
+          - name: Determine environment
+            id: set-env
+            run: |
+              if [ "${{ github.event_name }}" == "pull_request" ]; then
+                echo "environment=dev" >> $GITHUB_OUTPUT
+              else
+                echo "environment=prd" >> $GITHUB_OUTPUT
+              fi
+          
+          - name: Setup Databricks CLI
+            uses: databricks/setup-cli@main
+          
+          - name: Validate bundle
+            working-directory: ./retail-job
+            env:
+              DATABRICKS_HOST: ${{ needs.provision-infrastructure.outputs.workspace_url }}
+              DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+              # Unset OAuth credentials to avoid conflict
+              DATABRICKS_CLIENT_ID: ''
+              DATABRICKS_CLIENT_SECRET: ''
+              DATABRICKS_ACCOUNT_ID: ''
+            run: |
+              databricks bundle validate -t ${{ steps.set-env.outputs.environment }}
+              echo "✅ Bundle validation passed!"
   # deploy-prod:
   #   name: Deploy to Production
   #   runs-on: ubuntu-latest
