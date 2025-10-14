@@ -8,13 +8,10 @@ targets:
   dev:
     mode: development
     default: true
-    workspace:
-      host: https://dbc-a1b2c3d4-e5f6.cloud.databricks.com
   
   prd:
     mode: production
     workspace:
-      host: https://dbc-a1b2c3d4-e5f6.cloud.databricks.com
       root_path: "/Shared/.bundle/prod/${bundle.name}"
 
 resources:
