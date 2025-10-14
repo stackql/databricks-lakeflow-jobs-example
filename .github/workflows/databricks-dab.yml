@@ -75,16 +75,16 @@ jobs:
           is_command: 'true'
           query: "REGISTRY PULL databricks_account;"
 
-      # - name: Deploy Infrastructure with StackQL
-      #   uses: stackql/stackql-deploy-action@v1.0.2
-      #   with:
-      #     command: 'build'
-      #     stack_dir: 'infrastructure'
-      #     stack_env: ${{ steps.set-env.outputs.stack_env }}
-      #     env_vars: AWS_REGION=${{ secrets.AWS_REGION }},AWS_ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID }},DATABRICKS_ACCOUNT_ID=${{ secrets.DATABRICKS_ACCOUNT_ID }},DATABRICKS_AWS_ACCOUNT_ID=${{ secrets.DATABRICKS_AWS_ACCOUNT_ID }}
+      - name: Deploy Infrastructure with StackQL
+        uses: stackql/stackql-deploy-action@v1.0.2
+        with:
+          command: 'build'
+          stack_dir: 'infrastructure'
+          stack_env: ${{ steps.set-env.outputs.stack_env }}
+          env_vars: AWS_REGION=${{ secrets.AWS_REGION }},AWS_ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID }},DATABRICKS_ACCOUNT_ID=${{ secrets.DATABRICKS_ACCOUNT_ID }},DATABRICKS_AWS_ACCOUNT_ID=${{ secrets.DATABRICKS_AWS_ACCOUNT_ID }}
 
-      - name: Setup StackQL
-        uses: stackql/setup-stackql@v2.2.3
+      # - name: Setup StackQL
+      #   uses: stackql/setup-stackql@v2.2.3
 
       - name: Get and parse workspace outputs
         id: parse-workspace
