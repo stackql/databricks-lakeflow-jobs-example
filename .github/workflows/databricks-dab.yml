@@ -84,20 +84,16 @@ jobs:
           env_vars: AWS_REGION=${{ secrets.AWS_REGION }},AWS_ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID }},DATABRICKS_ACCOUNT_ID=${{ secrets.DATABRICKS_ACCOUNT_ID }},DATABRICKS_AWS_ACCOUNT_ID=${{ secrets.DATABRICKS_AWS_ACCOUNT_ID }}
           # log_level: DEBUG
 
-      # - name: Setup StackQL
-      #   uses: stackql/setup-stackql@v2.2.3
-
       - name: Get and parse workspace outputs
         id: parse-workspace
         run: |
-          # stackql should be in PATH after setup
           RESULT=$(stackql exec "SELECT 
             workspace_name,
             workspace_id,
             deployment_name,
             workspace_status
           FROM databricks_account.provisioning.workspaces 
-          WHERE account_id = '${{ env.DATABRICKS_ACCOUNT_ID }}' 
+          WHERE account_id = '${{ secrets.DATABRICKS_ACCOUNT_ID }}' 
           AND workspace_name = 'databricks-lakeflow-jobs-demo-${{ steps.set-env.outputs.stack_env }}-workspace'
           " --output json)
           
@@ -108,26 +104,6 @@ jobs:
           echo "workspace_id=$(echo "$RESULT" | jq -r '.[0].workspace_id')" >> $GITHUB_OUTPUT
           echo "deployment_name=$(echo "$RESULT" | jq -r '.[0].deployment_name')" >> $GITHUB_OUTPUT
           echo "workspace_status=$(echo "$RESULT" | jq -r '.[0].workspace_status')" >> $GITHUB_OUTPUT
-        env:
-          DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
-          DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
-
-      # - name: Get workspace outputs
-      #   id: get-workspace
-      #   uses: stackql/stackql-exec@v2.2.3
-      #   with:
-      #     query: |
-      #       SELECT 
-      #         workspace_name,
-      #         workspace_id,
-      #         deployment_name,
-      #         workspace_status
-      #       FROM databricks_account.provisioning.workspaces 
-      #       WHERE account_id = '${{ env.DATABRICKS_ACCOUNT_ID }}' 
-      #       AND workspace_name = 'databricks-lakeflow-jobs-demo-${{ steps.set-env.outputs.stack_env }}-workspace'
-      #   env:
-      #     DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
-      #     DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
 
       - name: Display workspace info
         run: |
