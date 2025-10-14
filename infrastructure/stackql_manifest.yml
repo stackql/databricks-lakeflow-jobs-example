@@ -33,7 +33,6 @@ resources:
 # ====================================================================================
 
   - name: aws/iam/cross_account_role
-    if: "'env' == '{{ stack_env }}'"
     file: aws/iam/iam_role.iql
     props:
       - name: role_name
