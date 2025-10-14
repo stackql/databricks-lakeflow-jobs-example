@@ -144,7 +144,6 @@ resources:
       - aws_iam_role_arn: aws_iam_cross_account_role_arn
 
   - name: databricks_account/credentials
-    if: "'env' == '{{ stack_env }}'"
     props:
       - name: credentials_name
         value: "{{ stack_name }}-{{ stack_env }}-credentials"
@@ -214,7 +213,6 @@ resources:
                 - "{{ aws_s3_workspace_bucket_arn }}"
 
   - name: databricks_account/storage_configuration
-    if: "'env' == '{{ stack_env }}'"
     props:
     - name: storage_configuration_name
       value: "{{ stack_name }}-{{ stack_env }}-storage"
