@@ -68,6 +68,9 @@ jobs:
             echo "stack_env=prd" >> $GITHUB_OUTPUT
           fi
 
+      - name: setup-stackql
+        uses: stackql/setup-stackql@v2.2.3      
+
       - name: Pull Databricks provider
         id: registry-pull
         uses: stackql/stackql-exec@v2.2.3
