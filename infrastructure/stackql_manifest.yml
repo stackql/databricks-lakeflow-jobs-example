@@ -160,7 +160,6 @@ resources:
 # ====================================================================================
 
   - name: aws/s3/workspace_bucket
-    if: "'env' == '{{ stack_env }}'"
     file: aws/s3/s3_bucket.iql
     props:
       - name: bucket_name
