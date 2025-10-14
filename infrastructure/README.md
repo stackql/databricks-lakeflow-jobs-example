@@ -1,87 +1,138 @@
-# `stackql-deploy` example project for `databricks`
+# Databricks Lakeflow Jobs Infrastructure
 
-This exercise is to bootstrap a databricks / aws tenancy using `stackql-deploy`.  It is an important use case for platform bootstrap and we are excited to perform it with the `stackql` toolchain.  We hope you enjoy and find this valuable.  Please drop us a note with your forthright opinion on this and check out our issues on github.
+This project demonstrates how to provision Databricks infrastructure on AWS using [**StackQL**](https://github.com/stackql/stackql) and [**stackql-deploy**](https://stackql-deploy.io/) as a modern, declarative, state-file less alternative to Terraform.
 
-## A word of caution
+## About StackQL and stackql-deploy
 
-Please take the greatest care in performing this exercise; it will incur expenses, as it involves creating (and destroying) resources which cost money. Please be aware that you **must** cancel your databricks subscription after completing this exercise, otherwise you will incur ongoing expenses.  That is, do **not** skip the section [Cancel databricks subscription](#cancel-databricks-subsription).  We strongly advise that you verify all resources are destroyed at the conclusion of this exercise.  Web pages and certain behaviours may change, so please be thorough in your verification.  We will keep this page up-to-date on a best effort basis only.  It is very much a case of owner onus applies.
+**StackQL** is an open-source DevOps framework that uses SQL to query, provision, and manage cloud and SaaS resources. It provides a unified interface to interact with cloud providers through their APIs using familiar SQL syntax.
 
-## Manual Setup
+**stackql-deploy** is an Infrastructure as Code (IaC) framework built on top of StackQL that enables:
+- **Declarative infrastructure management** using SQL-based templates
+- **Multi-cloud support** with consistent syntax across providers
+- **GitOps workflows** with native CI/CD integration
+- **State management** without external state files
+- **Real-time querying** of cloud resources alongside provisioning
 
-Dependencies:
+### Why Choose StackQL over Terraform?
 
-- aws Account Created.
-- Required clickops to set up databricks on aws:
-    - Turn on aws Marketplace `databricks` offering, using [the aws manage subscriptions page](https://console.aws.amazon.com/marketplace/home#/subscriptions), per Figure S1.
-    - Follow the suggested setup flow as directed, from this page.  These clickops steps are necessary at this time for initial account setup.  The way I followed this, it created a workspace for me at setup, per Figure S3.  We shall not use this one and rather, later on we shall dispose of it; because we do not trust auto-created resources out of hand.  In the process of creating the databricks subscription, a second aws account is created.
-    - Copy the databricks account id from basically any web page in the databricks console.  This is done by clicking on the user icon at the top RHS and then the UI provides a copy shortcut, per Fugure U1.  Save this locally for later use, expanded below.
-    - We need the aws account id that was created for the databricks subscription.  It is not exactly heralded by the web pages, nor is it actively hidden.  It can be captured in a couple of places, including the databricks storage account creatted in the subscription flow, per Figure XA1.  copy and save this locally for later use, expanded below. 
-    - Create a service principal to use as a "CICD agent", using the page shown in Figure S4.
-    - Grant the CICD agent account admin role, using the page shown in Figure S5.
-    - Create a secret for the CICD agent, using the page shown in Figure S6.  At the time you create this, you will need to safely store the client secret and client id, as prompted by the web page.  These will be used below.
-- Setup your virtual environment, from the root  of this repository `cicd/setup/setup-env.sh`.
+- **No proprietary DSL**: Use SQL, a language most developers already know
+- **No state files**: Infrastructure state is queried directly from cloud APIs
+- **Real-time visibility**: Query your infrastructure state at any time
+- **Unified interface**: Manage multiple cloud providers with consistent syntax
+- **Lightweight**: No agents or servers required
 
-Now, is is convenient to use environment variables for context.  Note that for our example, there is only one aws account apropos, however this is not always the case for an active professional, so while `DATABRICKS_AWS_ACCOUNT_ID` is the same as `AWS_ACCOUNT_ID` here, it need not always be the case. Create a file in the path `examples/databricks/serverless/sec/env.sh` (relative to the root of this repository) with contents of the form:
+## What This Project Provisions
 
-```bash
-#!/usr/bin/env bash
+This infrastructure stack creates:
+- AWS IAM roles and policies for cross-account access
+- S3 buckets with appropriate policies for Databricks workspace storage
+- Databricks workspace with Unity Catalog metastore
+- Storage credentials and external locations for data access
+- Network configurations and security groups
 
-export AWS_REGION='us-east-1' # or wherever you want
-export AWS_ACCOUNT_ID='<your aws account ID>'
-export DATABRICKS_ACCOUNT_ID='<your databricks account ID>'
-export DATABRICKS_AWS_ACCOUNT_ID='<your databricks aws account ID>'
+## Prerequisites
 
-# These need to be created by clickops under [the account level user managment page](https://accounts.cloud.databricks.com/user-management).
-export DATABRICKS_CLIENT_ID='<your clickops created CICD agent client id>'
-export DATABRICKS_CLIENT_SECRET='<your clickops created CICD agent client secret>'
+Before starting, ensure you have:
 
-## These can be skipped if you run on [aws cloud shell](https://docs.aws.amazon.com/cloudshell/latest/userguide/welcome.html).
-export AWS_SECRET_ACCESS_KEY='<your aws secret per aws cli>'
-export AWS_ACCESS_KEY_ID='<your aws access key id per aws cli>'
+### AWS Account Setup
+- An active AWS account with administrative permissions
+- AWS CLI configured with appropriate credentials
 
-```
+### Databricks Account Setup
+Required manual setup steps (one-time only):
+1. **Enable Databricks on AWS Marketplace**: Visit the [AWS Marketplace subscriptions page](https://console.aws.amazon.com/marketplace/home#/subscriptions) and subscribe to the Databricks offering
+2. **Complete Databricks initial setup**: Follow the guided setup flow to create your Databricks account
+3. **Collect account identifiers**:
+   - **Databricks Account ID**: Available in the Databricks console (click user icon → copy account ID)
+   - **Databricks AWS Account ID**: Found in the cross-account role or storage configuration (different from your main AWS account)
+4. **Create service principal for CI/CD**:
+   - Go to Databricks Account Console → User Management → Service Principals
+   - Create a new service principal
+   - Grant it Account Admin role
+   - Generate a client secret and securely store both client ID and secret
 
-## Optional step: sanity checks with stackql
+### Local Development Setup
+- Python 3.8+ with virtual environment support
+- Git for version control
 
-Now, let us do some sanity checks and housekeeping with `stackql`.  This is purely optional.  From the root of this repository: 
+## Environment Variables
 
-```
-source examples/databricks/serverless/convenience.sh
-stackql shell
-```
-
-This will start a `stackql` interactive shell.  Here are some commands you can run (I will not place output here, that will be shared in a corresponding video):
-
-
-```sql
-registry pull databricks_account v24.12.00279;
-registry pull databricks_workspace v24.12.00279;
-
--- This will fail if accounts, subscription, or credentials are in error.
-select account_id FROM databricks_account.provisioning.credentials WHERE account_id = '<your databricks account id>';
-select account_id, workspace_name, workspace_id, workspace_status from databricks_account.provisioning.workspaces where account_id = '<your databricks account id>';
-```
-
-For extra credit, you can (asynchronously) delete the unnecessary workspace with `delete from databricks_account.provisioning.workspaces where account_id = '<your databricks account id>' and workspace_id = '<workspace id>';`, where you obtain the workspace id from the above query.  I have noted that due to some reponse caching it takes a while to disappear from select queries (much longer than disappearance from the web page), and you may want to bounce the `stackql` session to hurry things along.  This is not happening on the `stackql` side, but session bouncing forces a token refresh which can help cache busting. 
-
-## Lifecycle management
-
-Time to get down to business.  From the root of this repository:
+Create a `.env` file or set the following environment variables:
 
 ```bash
+# AWS Configuration
+export AWS_REGION='us-east-1'                    # Your preferred AWS region
+export AWS_ACCOUNT_ID='123456789012'             # Your AWS account ID
+export AWS_ACCESS_KEY_ID='your-aws-access-key'   # AWS credentials (optional if using AWS CLI/IAM roles)
+export AWS_SECRET_ACCESS_KEY='your-aws-secret'   # AWS credentials (optional if using AWS CLI/IAM roles)
+
+# Databricks Configuration
+export DATABRICKS_ACCOUNT_ID='your-databricks-account-id'        # From Databricks console
+export DATABRICKS_AWS_ACCOUNT_ID='databricks-aws-account-id'     # From Databricks cross-account setup
+export DATABRICKS_CLIENT_ID='your-service-principal-client-id'   # Service principal client ID
+export DATABRICKS_CLIENT_SECRET='your-service-principal-secret'  # Service principal secret
+```
+
+**Security Note**: Never commit these values to version control. Use environment variables, CI/CD secrets, or secure credential management systems.
+
+## `stackql-deploy` Commands and Arguments Overview
+
+`stackql-deploy` provides a simple yet powerful command-line interface for managing infrastructure lifecycles. The tool follows a consistent pattern:
+
+```bash
+stackql-deploy <command> <stack_dir> <stack_env> [options]
+```
+
+### Core Commands
+
+- **`build`**: Deploy/provision infrastructure resources
+- **`test`**: Validate that deployed infrastructure matches expected state
+- **`teardown`**: Destroy all provisioned resources
+- **`info`**: Display information about the stack configuration
+
+### Positional Arguments
+
+1. **`stack_dir`**: Path to the directory containing your `stackql_manifest.yml` and resource templates
+   - Example: `infrastructure` (refers to the `./infrastructure/` directory)
+   
+2. **`stack_env`**: Target environment for deployment
+   - Example: `dev`, `staging`, `prod`
+   - The same codebase can target multiple environments by making environment-specific substitutions
+   - Environment variables and configurations are interpolated based on this value
+
+### Key Features
+
+**Multi-Environment Support**: Use the same infrastructure code across different environments by leveraging the `stack_env` parameter. StackQL-deploy automatically substitutes environment-specific values in your templates, allowing you to:
+- Deploy to `dev` environment with smaller instance sizes
+- Use `prod` environment with production-grade configurations  
+- Maintain separate naming conventions per environment (e.g., `myapp-dev-bucket` vs `myapp-prod-bucket`)
+
+**Common Options**:
+- `--dry-run`: Preview what would be deployed without making changes
+- `--show-queries`: Display the actual SQL queries being executed
+- `-e KEY=VALUE`: Pass environment variables for template substitution
+- `--log-level`: Control verbosity of output
+
+## Local Deployment
+
+### 1. Setup Environment
+
+```bash
+# Create and activate virtual environment
 python3 -m venv myenv
-source examples/databricks/serverless/convenience.sh
-source venv/bin/activate
+source myenv/bin/activate  # On Windows: myenv\Scripts\activate
+
+# Install stackql-deploy
 pip install stackql-deploy
 ```
 
-> alternatively set the `AWS_REGION`, `AWS_ACCOUNT_ID`, `DATABRICKS_ACCOUNT_ID`, `DATABRICKS_AWS_ACCOUNT_ID` along with provider credentials `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `DATABRICKS_CLIENT_ID`, `DATABRICKS_CLIENT_SECRET`
+### 2. Validate Configuration (Dry Run)
 
-Then, do a dry run (good for catching **some** environmental issues):
+Before deploying, run a dry run to validate your configuration:
 
 ```bash
 stackql-deploy build \
-examples/databricks/serverless dev \
+infrastructure dev \
 -e AWS_REGION=${AWS_REGION} \
 -e AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID} \
 -e DATABRICKS_ACCOUNT_ID=${DATABRICKS_ACCOUNT_ID} \
@@ -89,14 +140,13 @@ examples/databricks/serverless dev \
 --dry-run
 ```
 
-You will see a verbose rendition of what `stackql-deploy` intends to do.
+### 3. Deploy Infrastructure
 
-
-Now, let use do it for real:
+Deploy the full infrastructure stack:
 
 ```bash
 stackql-deploy build \
-examples/databricks/serverless dev \
+infrastructure dev \
 -e AWS_REGION=${AWS_REGION} \
 -e AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID} \
 -e DATABRICKS_ACCOUNT_ID=${DATABRICKS_ACCOUNT_ID} \
@@ -104,22 +154,13 @@ examples/databricks/serverless dev \
 --show-queries
 ```
 
-The output is quite verbose, concludes in:
+### 4. Test Deployment
 
-```
-2025-02-08 12:51:25,914 - stackql-deploy - INFO - 📤 set [databricks_workspace_id] to [482604062392118] in exports
-2025-02-08 12:51:25,915 - stackql-deploy - INFO - ✅ successfully deployed databricks_workspace
-2025-02-08 12:51:25,915 - stackql-deploy - INFO - deployment completed in 0:04:09.603631
-🚀 build complete
-```
-
-Success!!!
-
-We can also use `stackql-deploy` to assess if our infra is shipshape:
+Verify the infrastructure is correctly provisioned:
 
 ```bash
 stackql-deploy test \
-examples/databricks/serverless dev \
+infrastructure dev \
 -e AWS_REGION=${AWS_REGION} \
 -e AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID} \
 -e DATABRICKS_ACCOUNT_ID=${DATABRICKS_ACCOUNT_ID} \
@@ -127,22 +168,13 @@ examples/databricks/serverless dev \
 --show-queries
 ```
 
-Again, the output is quite verbose, concludes in:
+### 5. Teardown (When Done)
 
-```
-2025-02-08 13:15:45,821 - stackql-deploy - INFO - 📤 set [databricks_workspace_id] to [482604062392118] in exports
-2025-02-08 13:15:45,821 - stackql-deploy - INFO - ✅ test passed for databricks_workspace
-2025-02-08 13:15:45,821 - stackql-deploy - INFO - deployment completed in 0:02:30.255860
-🔍 tests complete (dry run: False)
-```
-
-Success!!!
-
-Now, let us teardown our `stackql-deploy` managed infra:
+Clean up all provisioned resources:
 
 ```bash
 stackql-deploy teardown \
-examples/databricks/serverless dev \
+infrastructure dev \
 -e AWS_REGION=${AWS_REGION} \
 -e AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID} \
 -e DATABRICKS_ACCOUNT_ID=${DATABRICKS_ACCOUNT_ID} \
@@ -150,97 +182,141 @@ examples/databricks/serverless dev \
 --show-queries
 ```
 
-Takes its time, again verbose, concludes in:
+## CI/CD with GitHub Actions
+
+This repository includes a GitHub Actions workflow (`.github/workflows/databricks-dab.yml`) that demonstrates automated infrastructure provisioning using the [**stackql-deploy GitHub Action**](https://github.com/marketplace/actions/stackql-deploy).
+
+### GitHub Secrets Configuration
+
+To use the automated workflow, configure the following secrets in your GitHub repository:
 
 ```
-2025-02-08 13:24:17,941 - stackql-deploy - INFO - ✅ successfully deleted AWS_iam_cross_account_role
-2025-02-08 13:24:17,942 - stackql-deploy - INFO - deployment completed in 0:03:21.191788
-🚧 teardown complete (dry run: False)
+AWS_ACCESS_KEY_ID              # AWS access key for deployment
+AWS_SECRET_ACCESS_KEY          # AWS secret key for deployment  
+AWS_REGION                     # AWS region (e.g., us-east-1)
+AWS_ACCOUNT_ID                 # Your AWS account ID
+DATABRICKS_ACCOUNT_ID          # Your Databricks account ID
+DATABRICKS_AWS_ACCOUNT_ID      # Databricks cross-account AWS ID
+DATABRICKS_CLIENT_ID           # Service principal client ID
+DATABRICKS_CLIENT_SECRET       # Service principal secret
 ```
 
-Success!!!
+### Workflow Features
 
-## Optional step: verify destruction with stackql
+The GitHub Actions workflow:
+- **Triggers** on pushes to `main` and pull requests affecting infrastructure or job configurations
+- **Provisions infrastructure** using the `stackql/stackql-deploy-action@v1.0.2`
+- **Validates Databricks Asset Bundles** for the retail job configurations
+- **Deploys and tests** the complete data pipeline
+- **Provides detailed outputs** including workspace URLs and deployment status
 
-Now, let us do some sanity checks and housekeeping with `stackql`.  This is purely optional.  From the root of this repository: 
+### Key Workflow Steps
 
+1. **Environment Detection**: Automatically determines deployment environment (dev for PRs, prd for main branch)
+2. **StackQL Setup**: Installs StackQL and pulls required Databricks providers
+3. **Infrastructure Deployment**: Uses stackql-deploy to provision all AWS and Databricks resources
+4. **Workspace Configuration**: Parses deployment outputs and configures workspace access
+5. **DAB Validation & Deployment**: Validates and deploys Databricks Asset Bundles for data jobs
+
+### Using the stackql-deploy GitHub Action
+
+The workflow demonstrates the stackql-deploy GitHub Action usage:
+
+```yaml
+- name: Deploy Infrastructure with StackQL
+  uses: stackql/stackql-deploy-action@v1.0.2
+  with:
+    command: 'build'
+    stack_dir: 'infrastructure'
+    stack_env: ${{ steps.set-env.outputs.stack_env }}
+    env_vars: AWS_REGION=${{ secrets.AWS_REGION }},AWS_ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID }},DATABRICKS_ACCOUNT_ID=${{ secrets.DATABRICKS_ACCOUNT_ID }},DATABRICKS_AWS_ACCOUNT_ID=${{ secrets.DATABRICKS_AWS_ACCOUNT_ID }}
 ```
 
-source examples/databricks/serverless/convenience.sh
+This action provides:
+- **Simplified CI/CD integration** for StackQL deployments
+- **Automatic environment management** and credential handling
+- **Detailed logging** and deployment summaries
+- **Error handling** and rollback capabilities
 
+## Optional: Manual StackQL Verification
+
+You can manually verify your deployment using the StackQL interactive shell:
+
+```bash
+# Start StackQL shell
 stackql shell
 
+# Pull required providers
+REGISTRY PULL databricks_account;
+REGISTRY PULL databricks_workspace;
+
+# Verify account access
+SELECT account_id 
+FROM databricks_account.provisioning.credentials 
+WHERE account_id = 'your-databricks-account-id';
+
+# List workspaces
+SELECT account_id, workspace_name, workspace_id, workspace_status 
+FROM databricks_account.provisioning.workspaces 
+WHERE account_id = 'your-databricks-account-id';
 ```
 
-This will start a `stackql` interactive shell.  Here are some commands you can run (I will not place output here):
-
-
-```sql
-
-registry pull databricks_account v24.12.00279;
-
-registry pull databricks_workspace v24.12.00279;
-
-
-
-select account_id, workspace_name, workspace_id, workspace_status from databricks_account.provisioning.workspaces where account_id = '<your databricks account id>';
+## Project Structure
 
 ```
+infrastructure/
+├── README.md                           # This file
+├── stackql_manifest.yml               # StackQL deployment configuration
+└── resources/                          # StackQL resource templates
+    ├── aws/
+    │   ├── iam/                       # IAM roles and policies
+    │   └── s3/                        # S3 buckets and policies
+    ├── databricks_account/            # Account-level Databricks resources
+    └── databricks_workspace/          # Workspace-level configurations
+```
 
-## Cancel databricks subsription
+## Troubleshooting
 
-This is **very** important.
+### Common Issues
 
-Go to [the aws Marketplace manage subscriptions page](https://console.aws.amazon.com/marketplace/home#/subscriptions), navigate to databricks and then cancel the subscription.  
+1. **Authentication Errors**
+   - Verify all environment variables are set correctly
+   - Ensure service principal has Account Admin permissions
+   - Check AWS credentials have sufficient permissions
 
-## Figures
+2. **Deployment Failures**
+   - Run with `--dry-run` first to validate configuration
+   - Check that Databricks marketplace subscription is active
+   - Verify account IDs are correct (AWS vs Databricks AWS account)
 
+3. **Resource Conflicts**
+   - Ensure resource names are unique
+   - Check for existing resources with same names
+   - Verify region consistency across configurations
 
-![Create aws databricks subscription](/examples/databricks/serverless/assets/create-aws-databricks-subscription.png)
+### Getting Help
 
-**Figure S1**: Create aws databricks subscription.
+- **StackQL Documentation**: [https://stackql.io/docs](https://stackql.io/docs)
+- **stackql-deploy Guide**: [https://github.com/stackql/stackql-deploy](https://github.com/stackql/stackql-deploy)
+- **Databricks on AWS Setup**: [Databricks AWS Documentation](https://docs.databricks.com/en/getting-started/overview.html)
 
----
+## Cancel Databricks Subscription
 
-![Awaiting aws databricks subscription resources](/examples/databricks/serverless/assets/awaiting-subscription-resources.png)
+⚠️ **IMPORTANT**: After completing this exercise, you **MUST** cancel your Databricks subscription to avoid ongoing charges.
 
-**Figure S2**: Awaiting aws databricks subscription resources.
+1. Go to the [AWS Marketplace manage subscriptions page](https://console.aws.amazon.com/marketplace/home#/subscriptions)
+2. Navigate to the Databricks subscription
+3. Cancel the subscription
+4. Verify all AWS resources have been destroyed using the AWS Console
 
----
+## Additional Resources
 
-![Auto provisioned workspace](/examples/databricks/serverless/assets/auto-provisioned-worskpace.png)
-
-**Figure S3**: Auto provisioned workspace.
-
----
-
-![Capture databricks account id](/examples/databricks/serverless/assets/capture-databricks-account-id.png)
-
-**Figure U1**: Capture databricks account id.
-
----
-
-![Capture cross databricks aws account id](/examples/databricks/serverless/assets/capture-cross-databricks-aws-account-id.png)
-
-**Figure XA1**: Capture cross databricks aws account id.
-
----
-
-![Create CICD agent](/examples/databricks/serverless/assets/create-cicd-agent.png)
-
-**Figure S4**: Create CICD agent.
-
----
-
-![Grant account admin to CICD agent](/examples/databricks/serverless/assets/grant-account-admin-cicd-agent.png)
-
-**Figure S5**: Grant account admin to CICD agent.
-
----
-
-![Generate secret for CICD agent](/examples/databricks/serverless/assets/generate-secret-ui.png)
-
-**Figure S6**: Generate secret for CICD agent.
+- **StackQL Official Website**: [https://stackql.io](https://stackql.io)
+- **StackQL GitHub**: [https://github.com/stackql/stackql](https://github.com/stackql/stackql)  
+- **stackql-deploy GitHub Action**: [https://github.com/stackql/stackql-deploy-action](https://github.com/stackql/stackql-deploy-action)
+- **Databricks Documentation**: [https://docs.databricks.com](https://docs.databricks.com)
 
 ---
+
+*This project demonstrates the power of SQL-based infrastructure as code with StackQL. For questions or contributions, please visit our GitHub repository.*
 
