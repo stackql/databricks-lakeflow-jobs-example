@@ -138,7 +138,7 @@ jobs:
             echo "  Deployment: ${{ steps.parse-workspace.outputs.deployment_name }}"
             echo "  URL: ${{ steps.set-workspace-url.outputs.workspace_url }}"
             
-            echo "## 📦 Workspace provisioned using [`stackql`](https://github.com/stackql/stackql):" >> $GITHUB_STEP_SUMMARY
+            echo "## 📦 Workspace provisioned using `stackql-deploy`:" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Stack:** databricks-lakeflow-jobs-demo" >> $GITHUB_STEP_SUMMARY
             echo "**Environment:** ${{ steps.set-env.outputs.stack_env }}" >> $GITHUB_STEP_SUMMARY
