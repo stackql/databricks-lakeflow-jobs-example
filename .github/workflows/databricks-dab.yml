@@ -164,8 +164,7 @@ jobs:
           working-directory: ./retail-job
           env:
             DATABRICKS_HOST: ${{ steps.set-env.outputs.workspace_url }}
-            DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
-            DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+            DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
           run: |
             databricks bundle validate -t ${{ steps.set-env.outputs.environment }}
             echo "✅ Bundle validation passed!"
