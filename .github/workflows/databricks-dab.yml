@@ -172,6 +172,7 @@ jobs:
             run: |
               databricks bundle validate -t ${{ steps.set-env.outputs.environment }}
               echo "✅ Bundle validation passed!"
+
   # deploy-prod:
   #   name: Deploy to Production
   #   runs-on: ubuntu-latest
