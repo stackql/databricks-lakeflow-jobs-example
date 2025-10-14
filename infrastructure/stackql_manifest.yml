@@ -33,7 +33,7 @@ resources:
 # ====================================================================================
 
   - name: aws/iam/cross_account_role
-    if: "deployment == 'prod'"
+    if: "stack_env == 'prod'"
     file: aws/iam/iam_role.iql
     props:
       - name: role_name
@@ -144,7 +144,7 @@ resources:
       - aws_iam_role_arn: aws_iam_cross_account_role_arn
 
   - name: databricks_account/credentials
-    if: "deployment == 'prod'"
+    if: "stack_env == 'prod'"
     props:
       - name: credentials_name
         value: "{{ stack_name }}-{{ stack_env }}-credentials"
@@ -162,7 +162,7 @@ resources:
 # ====================================================================================
 
   - name: aws/s3/workspace_bucket
-    if: "deployment == 'prod'"
+    if: "stack_env == 'prod'"
     file: aws/s3/s3_bucket.iql
     props:
       - name: bucket_name
@@ -191,7 +191,7 @@ resources:
       - bucket_name: aws_s3_workspace_bucket_name
 
   - name: aws/s3/workspace_bucket_policy
-    if: "deployment == 'prod'"
+    if: "stack_env == 'prod'"
     file: aws/s3/s3_bucket_policy.iql
     props:
       - name: policy_document
@@ -214,7 +214,7 @@ resources:
                 - "{{ aws_s3_workspace_bucket_arn }}"
 
   - name: databricks_account/storage_configuration
-    if: "deployment == 'prod'"
+    if: "stack_env == 'prod'"
     props:
     - name: storage_configuration_name
       value: "{{ stack_name }}-{{ stack_env }}-storage"
@@ -229,7 +229,7 @@ resources:
 # ====================================================================================
 
   - name: aws/s3/metastore_bucket
-    if: "deployment == 'prod'"
+    if: "stack_env == 'prod'"
     file: aws/s3/s3_bucket.iql
     props:
       - name: bucket_name
@@ -258,7 +258,7 @@ resources:
       - bucket_name: aws_s3_metastore_bucket_name
 
   - name: aws/iam/metastore_access_role
-    if: "deployment == 'prod'"
+    if: "stack_env == 'prod'"
     file: aws/iam/iam_role.iql
     props:
       - name: role_name
@@ -391,7 +391,7 @@ resources:
       - databricks_deployment_name        
 
   - name: databricks_account/workspace_group
-    if: "deployment == 'prod'"
+    if: "stack_env == 'prod'"
     props:
     - name: display_name
       value: "{{ stack_name }}-{{ stack_env }}-workspace-admins"
@@ -400,7 +400,7 @@ resources:
       - databricks_group_name
 
   - name: databricks_account/get_users
-    if: "deployment == 'prod'"
+    if: "stack_env == 'prod'"
     type: query
     props:
     - name: users
@@ -411,16 +411,16 @@ resources:
       - databricks_workspace_group_members  
 
   - name: databricks_account/update_group_membership
-    if: "deployment == 'prod'"
+    if: "stack_env == 'prod'"
     type: command
     props: []
 
   - name: databricks_account/workspace_permission_assignments
-    if: "deployment == 'prod'"
+    if: "stack_env == 'prod'"
     props: []
 
   - name: databricks_workspace/storage_credential
-    if: "deployment == 'prod'"
+    if: "stack_env == 'prod'"
     props:
     - name: name
       value: "{{ stack_name }}_{{ stack_env }}_storage_credential"
@@ -438,7 +438,7 @@ resources:
     - storage_credential_external_id
 
   - name: aws/iam/update_metastore_access_role
-    if: "deployment == 'prod'"
+    if: "stack_env == 'prod'"
     type: command
     props:
       - name: role_name
@@ -458,7 +458,7 @@ resources:
                   sts:ExternalId: "{{ storage_credential_external_id }}"
   
   - name: databricks_workspace/unitycatalog/credential_grants
-    if: "deployment == 'prod'"
+    if: "stack_env == 'prod'"
     type: command
     props: 
       - name: privileges
@@ -473,7 +473,7 @@ resources:
       deployment_name = '{{ databricks_deployment_name }}';
 
   - name: databricks_workspace/external_location
-    if: "deployment == 'prod'"
+    if: "stack_env == 'prod'"
     props:
     - name: name
       value: "{{ stack_name }}_{{ stack_env }}_external_location"
@@ -491,7 +491,7 @@ resources:
     - external_location_name
 
   - name: databricks_workspace/unitycatalog/location_grants
-    if: "deployment == 'prod'"
+    if: "stack_env == 'prod'"
     type: command
     props: 
       - name: privileges
