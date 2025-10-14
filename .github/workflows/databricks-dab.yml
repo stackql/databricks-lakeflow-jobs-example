@@ -98,10 +98,18 @@ jobs:
             WHERE account_id = '${{ secrets.DATABRICKS_ACCOUNT_ID }}' 
             AND workspace_name = 'databricks-lakeflow-jobs-demo-${{ steps.set-env.outputs.stack_env }}-workspace'
 
+      - name: Debug outputs
+        run: |
+          echo "Available outputs:"
+          echo "result: ${{ steps.get-workspace.outputs.result }}"
+          echo "output: ${{ steps.get-workspace.outputs.output }}"
+          echo "json: ${{ steps.get-workspace.outputs.json }}"
+
       - name: Parse workspace outputs
         id: parse-workspace
         run: |
-          RESULT='${{ steps.get-workspace.outputs.result }}'
+          # Try different possible output names
+          RESULT='${{ steps.get-workspace.outputs.output || steps.get-workspace.outputs.json || steps.get-workspace.outputs.result }}'
           echo "Query returned: $RESULT"
           
           # Parse and set outputs
