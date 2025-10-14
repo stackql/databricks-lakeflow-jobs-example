@@ -164,7 +164,7 @@ jobs:
             working-directory: ./retail-job
             env:
               DATABRICKS_HOST: ${{ needs.provision-infrastructure.outputs.workspace_url }}
-              DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+              DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
               # Unset OAuth credentials to avoid conflict
               DATABRICKS_CLIENT_ID: ''
               DATABRICKS_CLIENT_SECRET: ''
