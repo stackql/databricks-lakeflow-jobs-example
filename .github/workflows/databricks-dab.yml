@@ -84,33 +84,33 @@ jobs:
           env_vars: AWS_REGION=${{ secrets.AWS_REGION }},AWS_ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID }},DATABRICKS_ACCOUNT_ID=${{ secrets.DATABRICKS_ACCOUNT_ID }},DATABRICKS_AWS_ACCOUNT_ID=${{ secrets.DATABRICKS_AWS_ACCOUNT_ID }}
           # log_level: DEBUG
 
-      - name: Get workspace info
-        id: get-workspace
-        uses: stackql/stackql-exec@v2.2.3
-        with:
-          query: |
-            SELECT 
-              workspace_name,
-              workspace_id,
-              deployment_name,
-              workspace_status
-            FROM databricks_account.provisioning.workspaces 
-            WHERE account_id = '${{ secrets.DATABRICKS_ACCOUNT_ID }}' 
-            AND workspace_name = 'databricks-lakeflow-jobs-demo-${{ steps.set-env.outputs.stack_env }}-workspace'
-
-      - name: Debug outputs
-        run: |
-          echo "Available outputs:"
-          echo "result: ${{ steps.get-workspace.outputs.result }}"
-          echo "output: ${{ steps.get-workspace.outputs.output }}"
-          echo "json: ${{ steps.get-workspace.outputs.json }}"
-
-      - name: Parse workspace outputs
+      - name: Get and parse workspace outputs
         id: parse-workspace
         run: |
-          # Try different possible output names
-          RESULT='${{ steps.get-workspace.outputs.output || steps.get-workspace.outputs.json || steps.get-workspace.outputs.result }}'
-          echo "Query returned: $RESULT"
+          # Execute query and capture output
+          FULL_OUTPUT=$(stackql exec "SELECT 
+            workspace_name,
+            workspace_id,
+            deployment_name,
+            workspace_status
+          FROM databricks_account.provisioning.workspaces 
+          WHERE account_id = '${{ secrets.DATABRICKS_ACCOUNT_ID }}' 
+          AND workspace_name = 'databricks-lakeflow-jobs-demo-${{ steps.set-env.outputs.stack_env }}-workspace'
+          " --output json 2>&1)
+          
+          echo "Full output:"
+          echo "$FULL_OUTPUT"
+          
+          # Extract just the JSON line (starts with '[' and ends with ']')
+          RESULT=$(echo "$FULL_OUTPUT" | grep -oP '^\[.*\]$' | head -1)
+          
+          echo "Extracted JSON: $RESULT"
+          
+          # Validate we got JSON
+          if [ -z "$RESULT" ]; then
+            echo "Error: Could not extract JSON from output"
+            exit 1
+          fi
           
           # Parse and set outputs
           echo "workspace_name=$(echo "$RESULT" | jq -r '.[0].workspace_name')" >> $GITHUB_OUTPUT
@@ -118,6 +118,13 @@ jobs:
           echo "deployment_name=$(echo "$RESULT" | jq -r '.[0].deployment_name')" >> $GITHUB_OUTPUT
           echo "workspace_status=$(echo "$RESULT" | jq -r '.[0].workspace_status')" >> $GITHUB_OUTPUT
 
+      - name: Display workspace info
+        run: |
+          echo "📦 Workspace provisioned:"
+          echo "  Name: ${{ steps.parse-workspace.outputs.workspace_name }}"
+          echo "  ID: ${{ steps.parse-workspace.outputs.workspace_id }}"
+          echo "  Status: ${{ steps.parse-workspace.outputs.workspace_status }}"
+          echo "  Deployment: ${{ steps.parse-workspace.outputs.deployment_name }}"
 
       # - name: Get and parse workspace outputs
       #   id: parse-workspace
