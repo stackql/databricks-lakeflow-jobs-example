@@ -129,124 +129,39 @@ jobs:
           echo "  Status: ${{ steps.parse-workspace.outputs.workspace_status }}"
           echo "  Deployment: ${{ steps.parse-workspace.outputs.deployment_name }}"
 
-      # - name: Get and parse workspace outputs
-      #   id: parse-workspace
-      #   run: |
-      #     RESULT=$(stackql exec "SELECT 
-      #       workspace_name,
-      #       workspace_id,
-      #       deployment_name,
-      #       workspace_status
-      #     FROM databricks_account.provisioning.workspaces 
-      #     WHERE account_id = '${{ secrets.DATABRICKS_ACCOUNT_ID }}' 
-      #     AND workspace_name = 'databricks-lakeflow-jobs-demo-${{ steps.set-env.outputs.stack_env }}-workspace'
-      #     " --output json)
-          
-      #     echo "Query returned: $RESULT"
-          
-      #     # Parse and set outputs
-      #     echo "workspace_name=$(echo "$RESULT" | jq -r '.[0].workspace_name')" >> $GITHUB_OUTPUT
-      #     echo "workspace_id=$(echo "$RESULT" | jq -r '.[0].workspace_id')" >> $GITHUB_OUTPUT
-      #     echo "deployment_name=$(echo "$RESULT" | jq -r '.[0].deployment_name')" >> $GITHUB_OUTPUT
-      #     echo "workspace_status=$(echo "$RESULT" | jq -r '.[0].workspace_status')" >> $GITHUB_OUTPUT
-
-      # - name: Display workspace info
-      #   run: |
-      #     echo "📦 Workspace provisioned:"
-      #     echo "  Name: ${{ steps.parse-workspace.outputs.workspace_name }}"
-      #     echo "  ID: ${{ steps.parse-workspace.outputs.workspace_id }}"
-      #     echo "  Status: ${{ steps.parse-workspace.outputs.workspace_status }}"
-      #     echo "  Deployment: ${{ steps.parse-workspace.outputs.deployment_name }}"
-
-      # - name: Extract StackQL outputs
-      #   id: extract-outputs
-      #   run: |
-      #     # Extract workspace details from StackQL exports
-      #     WORKSPACE_ID=$(cat .stackql/exports.json | jq -r '.databricks_workspace_id // empty')
-      #     WORKSPACE_URL=$(cat .stackql/exports.json | jq -r '.databricks_deployment_name // empty')
-      #     DEPLOYMENT_NAME=$(cat .stackql/exports.json | jq -r '.databricks_deployment_name // empty')
-          
-      #     echo "workspace_id=${WORKSPACE_ID}" >> $GITHUB_OUTPUT
-      #     echo "workspace_url=https://${WORKSPACE_URL}.cloud.databricks.com" >> $GITHUB_OUTPUT
-      #     echo "deployment_name=${DEPLOYMENT_NAME}" >> $GITHUB_OUTPUT
-          
-      #     echo "📦 Workspace provisioned:"
-      #     echo "  ID: ${WORKSPACE_ID}"
-      #     echo "  URL: https://${WORKSPACE_URL}.cloud.databricks.com"
+  validate:
+    name: Validate DAB Configuration
+    runs-on: ubuntu-latest
+   
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
       
-      # - name: Upload StackQL exports
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: stackql-exports-${{ steps.set-env.outputs.environment }}
-      #     path: .stackql/exports.json
-      #     retention-days: 7
+      - name: Setup Databricks CLI
+        uses: databricks/setup-cli@main
       
-      # - name: Comment infrastructure status on PR
-      #   if: github.event_name == 'pull_request'
-      #   uses: actions/github-script@v7
-      #   with:
-      #     script: |
-      #       const workspaceUrl = '${{ steps.extract-outputs.outputs.workspace_url }}';
-      #       const workspaceId = '${{ steps.extract-outputs.outputs.workspace_id }}';
-      #       const env = '${{ steps.set-env.outputs.environment }}';
+      - name: Validate bundle
+        run: |
+          databricks bundle validate -t dev
+          echo "✅ Bundle validation passed!"
+      
+      - name: Post validation results to PR
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const outcome = '${{ job.status }}';
+            const emoji = outcome === 'success' ? '✅' : '❌';
+            const message = outcome === 'success' 
+              ? 'DAB validation passed successfully!' 
+              : 'DAB validation failed. Please check the logs.';
             
-      #       github.rest.issues.createComment({
-      #         issue_number: context.issue.number,
-      #         owner: context.repo.owner,
-      #         repo: context.repo.repo,
-      #         body: `## 🏗️ Infrastructure Provisioned\n\n**Environment:** ${env}\n**Workspace ID:** ${workspaceId}\n**Workspace URL:** ${workspaceUrl}\n\n✅ Infrastructure is ready for workflow deployment!`
-      #       });
-      
-      # - name: Create infrastructure summary
-      #   run: |
-      #     echo "## 🏗️ Infrastructure Provisioning Complete" >> $GITHUB_STEP_SUMMARY
-      #     echo "" >> $GITHUB_STEP_SUMMARY
-      #     echo "**Environment:** ${{ steps.set-env.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
-      #     echo "**Workspace ID:** ${{ steps.extract-outputs.outputs.workspace_id }}" >> $GITHUB_STEP_SUMMARY
-      #     echo "**Workspace URL:** ${{ steps.extract-outputs.outputs.workspace_url }}" >> $GITHUB_STEP_SUMMARY
-      #     echo "" >> $GITHUB_STEP_SUMMARY
-      #     echo "### Resources Created" >> $GITHUB_STEP_SUMMARY
-      #     echo "- ✅ IAM Cross-account role" >> $GITHUB_STEP_SUMMARY
-      #     echo "- ✅ S3 workspace bucket" >> $GITHUB_STEP_SUMMARY
-      #     echo "- ✅ S3 metastore bucket" >> $GITHUB_STEP_SUMMARY
-      #     echo "- ✅ Unity Catalog storage credential" >> $GITHUB_STEP_SUMMARY
-      #     echo "- ✅ External location" >> $GITHUB_STEP_SUMMARY
-      #     echo "- ✅ Databricks workspace" >> $GITHUB_STEP_SUMMARY
-
-  # validate:
-  #   name: Validate DAB Configuration
-  #   runs-on: ubuntu-latest
-  #   if: github.event_name == 'pull_request'
-    
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
-      
-  #     - name: Setup Databricks CLI
-  #       uses: databricks/setup-cli@main
-      
-  #     - name: Validate bundle
-  #       run: |
-  #         databricks bundle validate -t dev
-  #         echo "✅ Bundle validation passed!"
-      
-  #     - name: Post validation results to PR
-  #       if: always()
-  #       uses: actions/github-script@v7
-  #       with:
-  #         script: |
-  #           const outcome = '${{ job.status }}';
-  #           const emoji = outcome === 'success' ? '✅' : '❌';
-  #           const message = outcome === 'success' 
-  #             ? 'DAB validation passed successfully!' 
-  #             : 'DAB validation failed. Please check the logs.';
-            
-  #           github.rest.issues.createComment({
-  #             issue_number: context.issue.number,
-  #             owner: context.repo.owner,
-  #             repo: context.repo.repo,
-  #             body: `${emoji} **Databricks Asset Bundle Validation**\n\n${message}`
-  #           });
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `${emoji} **Databricks Asset Bundle Validation**\n\n${message}`
+            });
 
   # deploy-dev:
   #   name: Deploy to Development
