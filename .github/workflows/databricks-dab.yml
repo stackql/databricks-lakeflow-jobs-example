@@ -38,96 +38,105 @@ env:
 jobs:
 
   provision-infrastructure:
-    name: Provision Databricks Infrastructure
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
-      DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+      name: Provision Databricks Infrastructure
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      runs-on: ubuntu-latest
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+        DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
 
-    outputs:
-      workspace_id: ${{ steps.extract-outputs.outputs.workspace_id }}
-      workspace_url: ${{ steps.extract-outputs.outputs.workspace_url }}
-      deployment_name: ${{ steps.extract-outputs.outputs.deployment_name }}
-      environment: ${{ steps.set-env.outputs.environment }}
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      outputs:
+        workspace_id: ${{ steps.parse-workspace.outputs.workspace_id }}
+        workspace_url: ${{ steps.set-workspace-url.outputs.workspace_url }}
+        deployment_name: ${{ steps.parse-workspace.outputs.deployment_name }}
+        environment: ${{ steps.set-env.outputs.environment }}
       
-      - name: Determine environment
-        id: set-env
-        run: |
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            echo "environment=dev" >> $GITHUB_OUTPUT
-            echo "stack_env=dev" >> $GITHUB_OUTPUT
-          else
-            echo "environment=prd" >> $GITHUB_OUTPUT
-            echo "stack_env=prd" >> $GITHUB_OUTPUT
-          fi
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@v4
+        
+        - name: Determine environment
+          id: set-env
+          run: |
+            if [ "${{ github.event_name }}" == "pull_request" ]; then
+              echo "environment=dev" >> $GITHUB_OUTPUT
+              echo "stack_env=dev" >> $GITHUB_OUTPUT
+            else
+              echo "environment=prd" >> $GITHUB_OUTPUT
+              echo "stack_env=prd" >> $GITHUB_OUTPUT
+            fi
 
-      - name: setup-stackql
-        uses: stackql/setup-stackql@v2.2.3      
+        - name: setup-stackql
+          uses: stackql/setup-stackql@v2.2.3      
 
-      - name: Pull Databricks provider
-        id: registry-pull
-        uses: stackql/stackql-exec@v2.2.3
-        with:
-          is_command: 'true'
-          query: "REGISTRY PULL databricks_account;"
+        - name: Pull Databricks provider
+          id: registry-pull
+          uses: stackql/stackql-exec@v2.2.3
+          with:
+            is_command: 'true'
+            query: "REGISTRY PULL databricks_account;"
 
-      - name: Deploy Infrastructure with StackQL
-        uses: stackql/stackql-deploy-action@v1.0.2
-        with:
-          command: 'build'
-          stack_dir: 'infrastructure'
-          stack_env: ${{ steps.set-env.outputs.stack_env }}
-          env_vars: AWS_REGION=${{ secrets.AWS_REGION }},AWS_ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID }},DATABRICKS_ACCOUNT_ID=${{ secrets.DATABRICKS_ACCOUNT_ID }},DATABRICKS_AWS_ACCOUNT_ID=${{ secrets.DATABRICKS_AWS_ACCOUNT_ID }}
-          # log_level: DEBUG
+        - name: Deploy Infrastructure with StackQL
+          uses: stackql/stackql-deploy-action@v1.0.2
+          with:
+            command: 'build'
+            stack_dir: 'infrastructure'
+            stack_env: ${{ steps.set-env.outputs.stack_env }}
+            env_vars: AWS_REGION=${{ secrets.AWS_REGION }},AWS_ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID }},DATABRICKS_ACCOUNT_ID=${{ secrets.DATABRICKS_ACCOUNT_ID }},DATABRICKS_AWS_ACCOUNT_ID=${{ secrets.DATABRICKS_AWS_ACCOUNT_ID }}
+            # log_level: DEBUG
 
-      - name: Get and parse workspace outputs
-        id: parse-workspace
-        run: |
-          # Execute query and capture output
-          FULL_OUTPUT=$(stackql exec "SELECT 
-            workspace_name,
-            workspace_id,
-            deployment_name,
-            workspace_status
-          FROM databricks_account.provisioning.workspaces 
-          WHERE account_id = '${{ secrets.DATABRICKS_ACCOUNT_ID }}' 
-          AND workspace_name = 'databricks-lakeflow-jobs-demo-${{ steps.set-env.outputs.stack_env }}-workspace'
-          " --output json 2>&1)
-          
-          echo "Full output:"
-          echo "$FULL_OUTPUT"
-          
-          # Extract just the JSON line (starts with '[' and ends with ']')
-          RESULT=$(echo "$FULL_OUTPUT" | grep -oP '^\[.*\]$' | head -1)
-          
-          echo "Extracted JSON: $RESULT"
-          
-          # Validate we got JSON
-          if [ -z "$RESULT" ]; then
-            echo "Error: Could not extract JSON from output"
-            exit 1
-          fi
-          
-          # Parse and set outputs
-          echo "workspace_name=$(echo "$RESULT" | jq -r '.[0].workspace_name')" >> $GITHUB_OUTPUT
-          echo "workspace_id=$(echo "$RESULT" | jq -r '.[0].workspace_id')" >> $GITHUB_OUTPUT
-          echo "deployment_name=$(echo "$RESULT" | jq -r '.[0].deployment_name')" >> $GITHUB_OUTPUT
-          echo "workspace_status=$(echo "$RESULT" | jq -r '.[0].workspace_status')" >> $GITHUB_OUTPUT
+        - name: Get and parse workspace outputs
+          id: parse-workspace
+          run: |
+            # Execute query and capture output
+            FULL_OUTPUT=$(stackql exec "SELECT 
+              workspace_name,
+              workspace_id,
+              deployment_name,
+              workspace_status
+            FROM databricks_account.provisioning.workspaces 
+            WHERE account_id = '${{ secrets.DATABRICKS_ACCOUNT_ID }}' 
+            AND workspace_name = 'databricks-lakeflow-jobs-demo-${{ steps.set-env.outputs.stack_env }}-workspace'
+            " --output json 2>&1)
+            
+            echo "Full output:"
+            echo "$FULL_OUTPUT"
+            
+            # Extract just the JSON line (starts with '[' and ends with ']')
+            RESULT=$(echo "$FULL_OUTPUT" | grep -oP '^\[.*\]$' | head -1)
+            
+            echo "Extracted JSON: $RESULT"
+            
+            # Validate we got JSON
+            if [ -z "$RESULT" ]; then
+              echo "Error: Could not extract JSON from output"
+              exit 1
+            fi
+            
+            # Parse and set outputs
+            echo "workspace_name=$(echo "$RESULT" | jq -r '.[0].workspace_name')" >> $GITHUB_OUTPUT
+            echo "workspace_id=$(echo "$RESULT" | jq -r '.[0].workspace_id')" >> $GITHUB_OUTPUT
+            echo "deployment_name=$(echo "$RESULT" | jq -r '.[0].deployment_name')" >> $GITHUB_OUTPUT
+            echo "workspace_status=$(echo "$RESULT" | jq -r '.[0].workspace_status')" >> $GITHUB_OUTPUT
 
-      - name: Display workspace info
-        run: |
-          echo "📦 Workspace provisioned:"
-          echo "  Name: ${{ steps.parse-workspace.outputs.workspace_name }}"
-          echo "  ID: ${{ steps.parse-workspace.outputs.workspace_id }}"
-          echo "  Status: ${{ steps.parse-workspace.outputs.workspace_status }}"
-          echo "  Deployment: ${{ steps.parse-workspace.outputs.deployment_name }}"
+        - name: Set workspace URL
+          id: set-workspace-url
+          run: |
+            DEPLOYMENT_NAME="${{ steps.parse-workspace.outputs.deployment_name }}"
+            WORKSPACE_URL="https://${DEPLOYMENT_NAME}.cloud.databricks.com"
+            echo "workspace_url=${WORKSPACE_URL}" >> $GITHUB_OUTPUT
+            echo "Workspace URL: ${WORKSPACE_URL}"
+
+        - name: Display workspace info
+          run: |
+            echo "📦 Workspace provisioned:"
+            echo "  Name: ${{ steps.parse-workspace.outputs.workspace_name }}"
+            echo "  ID: ${{ steps.parse-workspace.outputs.workspace_id }}"
+            echo "  Status: ${{ steps.parse-workspace.outputs.workspace_status }}"
+            echo "  Deployment: ${{ steps.parse-workspace.outputs.deployment_name }}"
+            echo "  URL: ${{ steps.set-workspace-url.outputs.workspace_url }}"
 
   validate:
       name: Validate DAB Configuration
@@ -153,6 +162,10 @@ jobs:
         
         - name: Validate bundle
           working-directory: ./retail-job
+          env:
+            DATABRICKS_HOST: ${{ steps.set-env.outputs.workspace_url }}
+            DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+            DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
           run: |
             databricks bundle validate -t ${{ steps.set-env.outputs.environment }}
             echo "✅ Bundle validation passed!"
