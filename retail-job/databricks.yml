@@ -11,7 +11,7 @@ targets:
     workspace:
       host: https://dbc-a1b2c3d4-e5f6.cloud.databricks.com
   
-  prod:
+  prd:
     mode: production
     workspace:
       host: https://dbc-a1b2c3d4-e5f6.cloud.databricks.com
