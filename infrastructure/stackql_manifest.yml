@@ -188,7 +188,6 @@ resources:
       - bucket_name: aws_s3_workspace_bucket_name
 
   - name: aws/s3/workspace_bucket_policy
-    if: "'env' == '{{ stack_env }}'"
     file: aws/s3/s3_bucket_policy.iql
     props:
       - name: policy_document
@@ -225,7 +224,6 @@ resources:
 # ====================================================================================
 
   - name: aws/s3/metastore_bucket
-    if: "'env' == '{{ stack_env }}'"
     file: aws/s3/s3_bucket.iql
     props:
       - name: bucket_name
@@ -254,7 +252,6 @@ resources:
       - bucket_name: aws_s3_metastore_bucket_name
 
   - name: aws/iam/metastore_access_role
-    if: "'env' == '{{ stack_env }}'"
     file: aws/iam/iam_role.iql
     props:
       - name: role_name
@@ -387,7 +384,6 @@ resources:
       - databricks_deployment_name        
 
   - name: databricks_account/workspace_group
-    if: "'env' == '{{ stack_env }}'"
     props:
     - name: display_name
       value: "{{ stack_name }}-{{ stack_env }}-workspace-admins"
@@ -396,7 +392,6 @@ resources:
       - databricks_group_name
 
   - name: databricks_account/get_users
-    if: "'env' == '{{ stack_env }}'"
     type: query
     props:
     - name: users
@@ -407,16 +402,13 @@ resources:
       - databricks_workspace_group_members  
 
   - name: databricks_account/update_group_membership
-    if: "'env' == '{{ stack_env }}'"
     type: command
     props: []
 
   - name: databricks_account/workspace_permission_assignments
-    if: "'env' == '{{ stack_env }}'"
     props: []
 
   - name: databricks_workspace/storage_credential
-    if: "'env' == '{{ stack_env }}'"
     props:
     - name: name
       value: "{{ stack_name }}_{{ stack_env }}_storage_credential"
@@ -434,7 +426,6 @@ resources:
     - storage_credential_external_id
 
   - name: aws/iam/update_metastore_access_role
-    if: "'env' == '{{ stack_env }}'"
     type: command
     props:
       - name: role_name
@@ -454,7 +445,6 @@ resources:
                   sts:ExternalId: "{{ storage_credential_external_id }}"
   
   - name: databricks_workspace/unitycatalog/credential_grants
-    if: "'env' == '{{ stack_env }}'"
     type: command
     props: 
       - name: privileges
@@ -469,7 +459,6 @@ resources:
       deployment_name = '{{ databricks_deployment_name }}';
 
   - name: databricks_workspace/external_location
-    if: "'env' == '{{ stack_env }}'"
     props:
     - name: name
       value: "{{ stack_name }}_{{ stack_env }}_external_location"
@@ -487,7 +476,6 @@ resources:
     - external_location_name
 
   - name: databricks_workspace/unitycatalog/location_grants
-    if: "'env' == '{{ stack_env }}'"
     type: command
     props: 
       - name: privileges
