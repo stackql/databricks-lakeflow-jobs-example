@@ -30,7 +30,6 @@ env:
   DATABRICKS_AWS_ACCOUNT_ID: ${{ secrets.DATABRICKS_AWS_ACCOUNT_ID }}
   DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
   DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
-  
 
 jobs:
 
@@ -45,11 +44,11 @@ jobs:
         DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
 
       outputs:
-        workspace_id: ${{ steps.parse-workspace.outputs.workspace_id }}
-        workspace_url: ${{ steps.set-workspace-url.outputs.workspace_url }}
-        deployment_name: ${{ steps.parse-workspace.outputs.deployment_name }}
+        workspace_id: ${{ steps.stackql-deploy.outputs.workspace_id }}
+        workspace_url: ${{ steps.stackql-deploy.outputs.workspace_url }}
+        deployment_name: ${{ steps.stackql-deploy.outputs.deployment_name }}
         environment: ${{ steps.set-env.outputs.environment }}
-      
+
       steps:
         - name: Checkout code
           uses: actions/checkout@v4
@@ -65,83 +64,22 @@ jobs:
               echo "stack_env=prd" >> $GITHUB_OUTPUT
             fi
 
-        - name: setup-stackql
-          uses: stackql/setup-stackql@v2.2.3      
-
-        - name: Pull Databricks provider
-          id: registry-pull
-          uses: stackql/stackql-exec@v2.2.3
-          with:
-            is_command: 'true'
-            query: "REGISTRY PULL databricks_account;"
-
-        - name: Deploy Infrastructure with StackQL
-          uses: stackql/stackql-deploy-action@v1.0.2
+        - name: Deploy infrastructure with StackQL
+          id: exec-stackql-deploy
+          uses: stackql/stackql-deploy-action@v1.0.3
           with:
             command: 'build'
             stack_dir: 'infrastructure'
             stack_env: ${{ steps.set-env.outputs.stack_env }}
             env_vars: AWS_REGION=${{ secrets.AWS_REGION }},AWS_ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID }},DATABRICKS_ACCOUNT_ID=${{ secrets.DATABRICKS_ACCOUNT_ID }},DATABRICKS_AWS_ACCOUNT_ID=${{ secrets.DATABRICKS_AWS_ACCOUNT_ID }}
-            # log_level: DEBUG
+            output_file: 'deployment-outputs.json'
 
-        - name: Get and parse workspace outputs
-          id: parse-workspace
+        - name: Set outputs from stackql-deploy exports
+          id: stackql-deploy
           run: |
-            # Execute query and capture output
-            FULL_OUTPUT=$(stackql exec "SELECT 
-              workspace_name,
-              workspace_id,
-              deployment_name,
-              workspace_status
-            FROM databricks_account.provisioning.workspaces 
-            WHERE account_id = '${{ secrets.DATABRICKS_ACCOUNT_ID }}' 
-            AND workspace_name = 'databricks-lakeflow-jobs-demo-${{ steps.set-env.outputs.stack_env }}-workspace'
-            " --output json 2>&1)
-            
-            echo "Full output:"
-            echo "$FULL_OUTPUT"
-            
-            # Extract just the JSON line (starts with '[' and ends with ']')
-            RESULT=$(echo "$FULL_OUTPUT" | grep -oP '^\[.*\]$' | head -1)
-            
-            echo "Extracted JSON: $RESULT"
-            
-            # Validate we got JSON
-            if [ -z "$RESULT" ]; then
-              echo "Error: Could not extract JSON from output"
-              exit 1
-            fi
-            
-            # Parse and set outputs
-            echo "workspace_name=$(echo "$RESULT" | jq -r '.[0].workspace_name')" >> $GITHUB_OUTPUT
-            echo "workspace_id=$(echo "$RESULT" | jq -r '.[0].workspace_id')" >> $GITHUB_OUTPUT
-            echo "deployment_name=$(echo "$RESULT" | jq -r '.[0].deployment_name')" >> $GITHUB_OUTPUT
-            echo "workspace_status=$(echo "$RESULT" | jq -r '.[0].workspace_status')" >> $GITHUB_OUTPUT
-
-        - name: Set workspace URL
-          id: set-workspace-url
-          run: |
-            DEPLOYMENT_NAME="${{ steps.parse-workspace.outputs.deployment_name }}"
-            WORKSPACE_URL="https://${DEPLOYMENT_NAME}.cloud.databricks.com"
-            echo "workspace_url=${WORKSPACE_URL}" >> $GITHUB_OUTPUT
-            echo "Workspace URL: ${WORKSPACE_URL}"
-
-        - name: Display workspace info
-          run: |
-            echo "📦 Workspace provisioned:"
-            echo "  Name: ${{ steps.parse-workspace.outputs.workspace_name }}"
-            echo "  ID: ${{ steps.parse-workspace.outputs.workspace_id }}"
-            echo "  Status: ${{ steps.parse-workspace.outputs.workspace_status }}"
-            echo "  Deployment: ${{ steps.parse-workspace.outputs.deployment_name }}"
-            echo "  URL: ${{ steps.set-workspace-url.outputs.workspace_url }}"
-            
-            echo "## 📦 Workspace provisioned using StackQL:" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Stack:** databricks-lakeflow-jobs-demo" >> $GITHUB_STEP_SUMMARY
-            echo "**Environment:** ${{ steps.set-env.outputs.stack_env }}" >> $GITHUB_STEP_SUMMARY
-            echo "**Workspace:** [${{ steps.parse-workspace.outputs.workspace_name }}](${{ steps.set-workspace-url.outputs.workspace_url }})" >> $GITHUB_STEP_SUMMARY
-            echo "**Workspace ID:** ${{ steps.parse-workspace.outputs.workspace_id }}" >> $GITHUB_STEP_SUMMARY
-            echo "**Status:** ${{ steps.parse-workspace.outputs.workspace_status }}" >> $GITHUB_STEP_SUMMARY
+            echo "workspace_id=$(jq -r '.databricks_workspace_id' deployment-outputs.json)" >> $GITHUB_OUTPUT
+            echo "workspace_url=$(jq -r '.databricks_workspace_url' deployment-outputs.json)" >> $GITHUB_OUTPUT
+            echo "deployment_name=$(jq -r '.databricks_deployment_name' deployment-outputs.json)" >> $GITHUB_OUTPUT
 
   validate:
         name: Validate DAB Configuration
